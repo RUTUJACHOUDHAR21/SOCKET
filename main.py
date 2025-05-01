@@ -32,10 +32,11 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def get():
     with open("index.html") as f:
         return HTMLResponse(f.read())
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):

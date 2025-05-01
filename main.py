@@ -1,40 +1,31 @@
-from fastapi import FastAPI, WebSocket
-from fastapi.responses import HTMLResponse
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.staticfiles import StaticFiles
+import asyncio
+import websockets
+import json
 
-app = FastAPI()
+connected_clients = set()
 
-# Allow frontend from any origin (CORS)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Serve static files (e.g., index.html)
-app.mount("/static", StaticFiles(directory="."), name="static")
-
-@app.get("/")
-async def get():
-    with open("index.html") as f:
-        return HTMLResponse(f.read())
-
-clients = []
-
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    clients.append(websocket)
+async def handler(websocket):
+    connected_clients.add(websocket)
     try:
-        while True:
-            data = await websocket.receive_text()
-            # Broadcast the message to all clients
-            for client in clients:
-                if client != websocket:  # Send to other clients, not the sender
-                    await client.send_text(data)
-    except Exception as e:
-        print(f"Error: {e}")
+        async for message in websocket:
+            message_data = json.loads(message)
+            sender = message_data.get("sender", "Anonymous")
+            text = message_data.get("message", "")
+            print(f"Received message from {sender}: {text}")
+            # Broadcast the message to all connected clients
+            for client in connected_clients:
+                if client != websocket and client.open:
+                    await client.send(json.dumps({"sender": sender, "message": text}))
+    except websockets.ConnectionClosed:
+        print("A client disconnected")
     finally:
-        clients.remove(websocket)
+        connected_clients.remove(websocket)
+
+async def main():
+    #  Use the host and port that Render provides.  For Render, you might need to use 10000
+    async with websockets.serve(handler, host='0.0.0.0', port=10000): # Important for Render
+        print("WebSocket server started at wss://0.0.0.0:10000")
+        await asyncio.Future()  # Run forever
+
+if __name__ == "__main__":
+    asyncio.run(main())

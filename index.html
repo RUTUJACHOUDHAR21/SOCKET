@@ -1,200 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Real-Time Chat</title>
+    <title>Chat App</title>
     <style>
-        body {
-            font-family: sans-serif;
-            margin: 20px;
-            background-color: #f4f4f4;
-        }
-        .chat-container {
-            max-width: 600px;
-            border: 1px solid #ccc;
-            background-color: #fff;
-            padding: 20px;
-            margin: 0 auto;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-        }
-        .chat-header {
-            text-align: center;
-            margin-bottom: 20px;
-            font-size: 24px;
-            color: #333;
-        }
-        .chat-display {
-            height: 300px;
-            overflow-y: auto;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            background-color: #f9f9f9;
-            border-radius: 5px;
-        }
-        .message {
-            padding: 10px;
-            border-bottom: 1px dotted #eee;
-            display: flex;
-            align-items: flex-start; /* Align items to the start (top) */
-            gap: 10px; /* Add some gap between sender and text */
-        }
-        .message:last-child {
-            border-bottom: none;
-        }
-        .message .sender {
-            font-weight: bold;
-            color: #007bff; /* Blue for sender's name */
-            margin-right: 5px; /* Add space between sender and message */
-        }
-
-        .message-content {
-           /* No specific style here, but you can add styles for message text if needed */
-        }
-
-        input[type="text"] {
-            width: calc(100% - 120px); /* Adjust width to account for button */
-            padding: 10px;
-            margin-right: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-sizing: border-box;
-            font-size: 16px;
-        }
-        button {
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        #sendButton:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-            color: #666;
-        }
+        body { font-family: Arial; margin: 20px; }
+        #chat { border: 1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px; }
+        #message { width: 80%; }
+        #send { width: 15%; }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-header">Real-Time Chat</div>
-        <div class="chat-display" id="chatDisplay">
-            </div>
-        <div>
-            <input type="text" id="messageInput" placeholder="Type a message...">
-            <button id="sendButton" disabled>Send</button>
-        </div>
-    </div>
+    <h2>Socket Chat App</h2>
+    <div id="chat"></div>
+    <input type="text" id="message" placeholder="Type a message..." />
+    <button id="send">Send</button>
+
     <script>
-        const serverURL = "wss://socket5.onrender.com";
-        let websocket;
-        let userId = generateUserId(); // Generate a unique ID for this user
+        const ws = new WebSocket("wss://socket-chatapp-u65b.onrender.com/ws");
+        const chat = document.getElementById("chat");
+        const sendBtn = document.getElementById("send");
+        const messageInput = document.getElementById("message");
 
-        function generateUserId() {
-            return Math.random().toString(36).substring(2, 15);
-        }
+        ws.onmessage = function(event) {
+            const msg = document.createElement("div");
+            msg.textContent = event.data;
+            chat.appendChild(msg);
+            chat.scrollTop = chat.scrollHeight;
+        };
 
-        function connectWebSocket() {
-            websocket = new WebSocket(serverURL);
-
-            websocket.onopen = () => {
-                console.log('Connected to WebSocket server');
-                updateSendButtonState();
-                // You might want to send an initial message to the server here
-                // websocket.send(JSON.stringify({ type: 'join', userId })); // Inform server of joining
-            };
-
-            websocket.onmessage = (event) => {
-                const messageData = JSON.parse(event.data);
-                 const chatDisplay = document.getElementById('chatDisplay');
-                if (chatDisplay) {
-                    const messageElement = document.createElement('div');
-                    messageElement.classList.add('message');
-
-                    const senderElement = document.createElement('span');
-                    senderElement.classList.add('sender');
-                    senderElement.textContent = messageData.sender + ":";
-
-                    const messageContentElement = document.createElement('span');
-                    messageContentElement.classList.add('message-content');
-                    messageContentElement.textContent = messageData.message;
-
-                    messageElement.appendChild(senderElement);
-                    messageElement.appendChild(messageContentElement);
-                    chatDisplay.appendChild(messageElement);
-                    chatDisplay.scrollTop = chatDisplay.scrollHeight;
-                }
-            };
-
-            websocket.onclose = () => {
-                console.log('Disconnected from WebSocket server');
-                updateSendButtonState();
-                //  Handle disconnection (e.g., try to reconnect)
-                setTimeout(connectWebSocket, 5000); //  Reconnect after 5 seconds
-            };
-
-            websocket.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                // Handle errors (e.g., display a message to the user)
-            };
-        }
-
-        function sendMessage(message) {
-             if (websocket && websocket.readyState === WebSocket.OPEN) {
-                const messageData = {
-                    sender: userId,
-                    message: message,
-                };
-                websocket.send(JSON.stringify(messageData));
-            } else {
-                console.warn('WebSocket not connected.  Message not sent.');
+        sendBtn.onclick = function() {
+            const msg = messageInput.value;
+            if (msg) {
+                ws.send(msg);
+                messageInput.value = "";
             }
-        }
-
-        function updateSendButtonState() {
-            const sendButton = document.getElementById('sendButton');
-            if (websocket && websocket.readyState === WebSocket.OPEN) {
-                sendButton.disabled = false;
-            } else {
-                sendButton.disabled = true;
-            }
-        }
-
-
-        window.addEventListener('load', () => {
-            const sendButton = document.getElementById('sendButton');
-            const messageInput = document.getElementById('messageInput');
-
-            connectWebSocket();  // Establish connection on page load
-
-            if (sendButton && messageInput) {
-                sendButton.addEventListener('click', () => {
-                    const message = messageInput.value;
-                    if (message) {
-                        sendMessage(message);
-                        messageInput.value = '';
-                    }
-                });
-
-                messageInput.addEventListener('keypress', (event) => {
-                    if (event.key === 'Enter') {
-                        sendMessage(messageInput.value);
-                        messageInput.value = '';
-                    }
-                });
-
-                // Disable the button initially and enable it on connection
-                updateSendButtonState();
-                 messageInput.addEventListener('input', () => {
-                    updateSendButtonState(); // Enable/disable based on input
-                });
-            }
-        });
+        };
     </script>
 </body>
 </html>

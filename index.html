@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WebSocket Chat</title>
+  <style>
+    body {
+      background: #121212;
+      color: white;
+      font-family: Arial;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .chat-box {
+      background: #222;
+      padding: 20px;
+      border-radius: 10px;
+      width: 400px;
+      display: flex;
+      flex-direction: column;
+    }
+    #messages {
+      height: 300px;
+      overflow-y: auto;
+      border: 1px solid #333;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .input-row {
+      display: flex;
+      gap: 10px;
+    }
+    input {
+      flex: 1;
+      padding: 10px;
+    }
+    button {
+      padding: 10px;
+      background: #03a9f4;
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
+    .my-message {
+      text-align: right;
+      color: #03a9f4;
+    }
+    .other-message {
+      text-align: left;
+      color: #ddd;
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-box">
+    <div id="messages"></div>
+    <div class="input-row">
+      <input type="text" id="input" placeholder="Type a message..." />
+      <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const ws = new WebSocket("wss://" + location.host + "/ws");
+    const messages = document.getElementById('messages');
+    const input = document.getElementById('input');
+
+    ws.onmessage = (event) => {
+      const msg = document.createElement('div');
+      msg.textContent = event.data;
+      msg.className = event.data.startsWith("Rutu:") ? "my-message" : "other-message";
+      messages.appendChild(msg);
+      messages.scrollTop = messages.scrollHeight;
+    };
+
+    function sendMessage() {
+      if (input.value.trim() !== '') {
+        const message = 'Rutu: ' + input.value;
+
+        const msg = document.createElement('div');
+        msg.textContent = message;
+        msg.className = 'my-message';
+        messages.appendChild(msg);
+        messages.scrollTop = messages.scrollHeight;
+
+        ws.send(message);
+        input.value = '';
+      }
+    }
+  </script>
+</body>
+</html>

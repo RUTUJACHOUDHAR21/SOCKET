@@ -37,6 +37,17 @@
       background: #c8e6c9;
       text-align: right;
     }
+    .system {
+      background: #eeeeee;
+      font-style: italic;
+      text-align: center;
+    }
+    .timestamp {
+      display: block;
+      font-size: 10px;
+      color: #666;
+      margin-top: 5px;
+    }
     #form {
       display: flex;
       gap: 10px;
@@ -73,33 +84,59 @@
   </div>
 
   <script>
+    let username = prompt("Enter your username:");
+    if (!username) {
+      username = "Guest" + Math.floor(Math.random() * 1000);
+    }
+
     const socket = new WebSocket("wss://" + location.host + "/ws");
     const chatBox = document.getElementById("chatBox");
     const msgInput = document.getElementById("msgInput");
 
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ type: "join", user: username }));
+    };
+
     socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
       const msg = document.createElement("div");
-      msg.classList.add("message");
-      if (event.data.startsWith(myId + ":")) {
-        msg.classList.add("self");
+      const timestamp = document.createElement("span");
+      timestamp.className = "timestamp";
+      timestamp.textContent = new Date().toLocaleTimeString();
+
+      if (data.type === "message") {
+        msg.className = "message";
+        if (data.user === username) msg.classList.add("self");
+        msg.innerHTML = `<strong>${data.user}</strong>: ${data.text}`;
+        msg.appendChild(timestamp);
+      } else if (data.type === "notification") {
+        msg.className = "message system";
+        msg.textContent = data.text;
+        msg.appendChild(timestamp);
       }
-      msg.textContent = event.data;
+
       chatBox.appendChild(msg);
       chatBox.scrollTop = chatBox.scrollHeight;
     };
 
-    const myId = Math.floor(Math.random() * 1000); // Temporary user ID
-
     function sendMessage() {
       if (msgInput.value.trim() !== "") {
-        const message = `${myId}: ${msgInput.value}`;
-        socket.send(message);
+        const payload = {
+          type: "message",
+          user: username,
+          text: msgInput.value.trim()
+        };
+        socket.send(JSON.stringify(payload));
         msgInput.value = "";
       }
     }
 
     msgInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") sendMessage();
+    });
+
+    window.addEventListener("beforeunload", () => {
+      socket.send(JSON.stringify({ type: "leave", user: username }));
     });
   </script>
 </body>

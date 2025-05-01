@@ -5,6 +5,7 @@ from starlette.staticfiles import StaticFiles
 
 app = FastAPI()
 
+# Allow frontend from any origin (CORS)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -12,6 +13,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Serve static files (e.g., index.html)
 app.mount("/static", StaticFiles(directory="."), name="static")
 
 @app.get("/")
@@ -28,7 +30,9 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
+            # Broadcast the message to all clients
             for client in clients:
-                await client.send_text(data)
+                if client.application_state == websocket.application_state:
+                    await client.send_text(data)
     except:
         clients.remove(websocket)

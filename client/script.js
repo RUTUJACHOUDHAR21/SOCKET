@@ -3,7 +3,7 @@ const chat = document.getElementById('chat');
 const messageInput = document.getElementById('message');
 
 // Replace 'localhost' with your server's URL when deploying
-const socket = new WebSocket('ws://localhost:8080');
+const socket = new WebSocket('ws://rutujachoudhar21.github.io/SOCKET/');
 
 socket.addEventListener('open', () => {
   appendMessage('Connected to the server');

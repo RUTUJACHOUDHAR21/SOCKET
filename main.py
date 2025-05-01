@@ -1,31 +1,51 @@
-import asyncio
-import websockets
-import json
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
-connected_clients = set()
+app = FastAPI()
 
-async def handler(websocket):
-    connected_clients.add(websocket)
+# Allow frontend to communicate (CORS)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Manage active connections
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+manager = ConnectionManager()
+
+@app.get("/")
+async def get():
+    with open("index.html") as f:
+        return HTMLResponse(f.read())
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
     try:
-        async for message in websocket:
-            message_data = json.loads(message)
-            sender = message_data.get("sender", "Anonymous")
-            text = message_data.get("message", "")
-            print(f"Received message from {sender}: {text}")
-            # Broadcast the message to all connected clients
-            for client in connected_clients:
-                if client != websocket and client.open:
-                    await client.send(json.dumps({"sender": sender, "message": text}))
-    except websockets.ConnectionClosed:
-        print("A client disconnected")
-    finally:
-        connected_clients.remove(websocket)
-
-async def main():
-    #  Use the host and port that Render provides.  For Render, you might need to use 10000
-    async with websockets.serve(handler, host='0.0.0.0', port=10000): # Important for Render
-        print("WebSocket server started at wss://0.0.0.0:10000")
-        await asyncio.Future()  # Run forever
+        while True:
+            data = await websocket.receive_text()
+            await manager.broadcast(f"User says: {data}")
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)

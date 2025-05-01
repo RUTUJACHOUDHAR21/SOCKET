@@ -32,7 +32,9 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
             # Broadcast the message to all clients
             for client in clients:
-                if client.application_state == websocket.application_state:
+                if client != websocket:  # Send to other clients, not the sender
                     await client.send_text(data)
-    except:
+    except Exception as e:
+        print(f"Error: {e}")
+    finally:
         clients.remove(websocket)
